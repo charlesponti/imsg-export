@@ -29,7 +29,10 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[A-Za-z]{2,}")
 ALLOWED_EMAILS = {"cj@ponti.io"}
 ALLOWED_EMAIL_SUFFIXES = ("@example.com", "@example.org", "@users.noreply.github.com")
 
-UUID = re.compile(r"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b")
+UUID = re.compile(
+    r"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}"
+    r"-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b"
+)
 HOME_PATH = re.compile(r"/Users/[A-Za-z0-9_.-]+")
 
 SKIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip")
@@ -48,7 +51,8 @@ def scan(paths: list[str], denylist: list[str]) -> list[str]:
         if path.endswith(SKIP_SUFFIXES) or path.startswith(".git/"):
             continue
         try:
-            text = open(path, encoding="utf-8").read()
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
         except (UnicodeDecodeError, OSError):
             continue
         for number in PHONE.findall(text):
@@ -78,7 +82,9 @@ def main() -> int:
     denylist: list[str] = []
     if args.denylist:
         with open(args.denylist, encoding="utf-8") as handle:
-            denylist = [line.strip() for line in handle if line.strip() and not line.startswith("#")]
+            denylist = [
+                line.strip() for line in handle if line.strip() and not line.startswith("#")
+            ]
 
     paths = args.files or tracked_files()
     problems = scan(paths, denylist)
