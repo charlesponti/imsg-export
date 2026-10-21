@@ -1,5 +1,11 @@
 # imsg-export
 
+[![CI](https://github.com/charlesponti/imsg-export/actions/workflows/ci.yml/badge.svg)](https://github.com/charlesponti/imsg-export/actions/workflows/ci.yml)
+[![coverage](.github/badges/coverage.svg)](.github/badges/coverage.svg)
+[![PyPI](https://img.shields.io/pypi/v/imsg-export.svg)](https://pypi.org/project/imsg-export/)
+[![Python](https://img.shields.io/pypi/pyversions/imsg-export.svg)](https://pypi.org/project/imsg-export/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Export the full contents of macOS Messages.app — iMessage, SMS and RCS — to portable
 JSONL, CSV and readable transcripts. Standard library only, no dependencies.
 
@@ -117,9 +123,25 @@ for message in iter_messages("~/imessage-export/messages.jsonl"):
 ## Development
 
     uv sync                    # venv + dev tools
-    uv run pytest              # tests, including a synthetic chat.db
+    uv run pytest --cov        # 100% line coverage is enforced
+    uv run mypy                # strict, on src only
     uv run ruff check .        # lint
     uv build                   # sdist + wheel into dist/
+
+The suite is not example-based only:
+
+- **Property tests (hypothesis)** drive the `attributedBody` decoder with arbitrary
+  bytes, truncations, junk before and after the blob, and payloads that embed marker
+  sequences. Every generated database must also survive export → verify unchanged,
+  and two runs over the same database must produce identical output.
+- **Type checking** is strict and the wheel ships `py.typed`.
+- **CI gates** lint, types, PII (`scripts/check_no_pii.py`), a full-history gitleaks
+  scan, tests at 100% coverage, and a metadata check on the built artifacts.
+
+Regenerate the coverage badge after a run:
+
+    uv run coverage run -m pytest && uv run coverage json \
+      && python3 scripts/coverage_badge.py coverage.json .github/badges/coverage.svg
 
 `docs/legacy/` holds the first, superseded attempt at this — the imsg-CLI-only exporter
 that missed 74% of the history, kept as a record of why the database is the source of truth.

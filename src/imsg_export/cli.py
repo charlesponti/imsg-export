@@ -114,8 +114,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    parser.print_help()
-    return 2
+    # Unreachable: argparse rejects unknown subcommands and the no-command case
+    # returns above. Kept as a defensive fallback.
+    parser.print_help()  # pragma: no cover
+    return 2  # pragma: no cover
 
 
 if __name__ == "__main__":  # pragma: no cover

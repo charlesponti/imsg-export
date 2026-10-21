@@ -11,6 +11,7 @@ import json
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .apple import clean_text
 from .exporter import default_db_path, iter_messages
@@ -88,7 +89,7 @@ def verify_export(target: str | Path, db: str | Path | None = None) -> VerifyRes
         db_text_rows=sum(1 for value in db_text.values() if value.strip()),
     )
 
-    exported: dict[int, dict] = {}
+    exported: dict[int, dict[str, Any]] = {}
     for message in iter_messages(messages_file):
         exported[message["id"]] = message
 

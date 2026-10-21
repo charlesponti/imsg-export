@@ -37,6 +37,8 @@ imsg-export = "imsg_export.cli:main"
 
 [dependency-groups]
 dev = [
+  "hypothesis>=6.170.5",
+  "mypy>=2.4.0",
   "pytest>=8",
   "pytest-cov>=6",
   "ruff>=0.15",
@@ -51,6 +53,9 @@ where = ["src"]
 [tool.setuptools.dynamic]
 version = { attr = "imsg_export.__version__" }
 
+[tool.setuptools.package-data]
+imsg_export = ["py.typed"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
@@ -62,9 +67,21 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "W"]
 [tool.ruff.lint.isort]
 known-first-party = ["imsg_export"]
 
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+strict = true
+warn_unreachable = true
+pretty = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
 
 [tool.coverage.run]
 source = ["imsg_export"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = false
