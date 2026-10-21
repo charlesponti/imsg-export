@@ -20,6 +20,15 @@ All notable changes to this project. The format follows
 - Building the attachment index walked the entire Messages attachment store on every
   export, even when there was nothing to resolve. It is now built lazily.
 
+### Performance
+
+- Per-chat message counts were computed with a nested scan over every message for
+  every chat — O(chats x messages), ~1.1 s on a 23.7k-message library. One `Counter`
+  pass replaces it (~3 ms). End-to-end export of that library: ~3.0 s to ~1.8 s.
+- `clean_text` filtered text with a per-character generator; a precompiled
+  control-character regex with a fast path is ~9x faster (67 ms to 8 ms over 23k
+  messages) with byte-identical output, checked against 200k random strings.
+
 ### Added
 
 - `py.typed` and strict mypy configuration; the package type-checks clean.

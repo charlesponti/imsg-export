@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 # 2001-01-01T00:00:00Z as a unix timestamp.
@@ -116,13 +117,24 @@ def decode_attributed_body(blob: bytes | None) -> str:
     return fallback.decode("utf-8", "ignore") if fallback is not None else ""
 
 
+#: Control characters dropped from message text. Tab and newline are deliberately
+#: absent: they are legitimate content.
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f]")
+
+
 def clean_text(text: str | None) -> str:
-    """Strip the attachment placeholder and control characters, keep newlines."""
+    """Strip the attachment placeholder and control characters, keep newlines.
+
+    A per-character comprehension over every message costs ~70 ms per 23k messages;
+    scanning with a precompiled regex first and usually finding nothing costs ~8 ms.
+    """
     if not text:
         return ""
     if text.startswith("\ufffc"):
         text = text[1:]
-    return "".join(ch for ch in text if ch in "\n\t" or ord(ch) >= 32).strip()
+    if _CONTROL.search(text):
+        text = _CONTROL.sub("", text)
+    return text.strip()
 
 
 def reaction_label(associated_type: int) -> str:

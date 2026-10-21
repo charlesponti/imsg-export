@@ -283,6 +283,7 @@ def _copy_attachments(
     attachments: dict[int, list[dict[str, Any]]],
     target: Path,
 ) -> tuple[list[dict[str, Any]], Counter[str]]:
+    """Copy attachments, recovering ones whose recorded path has gone stale."""
     index: dict[str, str] | None = None
     manifest: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
@@ -529,8 +530,9 @@ def export_history(
         for message in messages:
             handle.write(jsonl_line(message) + "\n")
 
+    per_chat = Counter(m["chat_id"] for m in messages if m["chat_id"])
     for chat in chats.values():
-        chat["message_count"] = sum(1 for m in messages if m["chat_id"] == chat["id"])
+        chat["message_count"] = per_chat.get(chat["id"], 0)
     (target_path / "chats.json").write_text(
         json.dumps(list(chats.values()), indent=2, ensure_ascii=False), encoding="utf-8"
     )
