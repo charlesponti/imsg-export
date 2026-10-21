@@ -12,8 +12,7 @@ Deleting a chat removes its rows from `chat_message_join` but leaves every messa
 `chat.db`. Anything that joins through the chat table — which is most tooling — silently
 drops them.
 
-On the machine this was built against, that gap was 17,606 of 23,674 messages: 74% of the
-history. Those messages are still recoverable; they just aren't reachable from the app.
+On the machine this was built against, that gap was 74% of the entire history. Those messages are still recoverable; they just aren't reachable from the app.
 
 `imsg-export` reads `message` directly, so it exports everything the database holds, and
 labels each record with how it was attached:

@@ -7,9 +7,9 @@ dead ends. They are hardcoded to `~/imessage-export-2026-10-21` and expect the
 Order they were written:
 
 1. `01_imsg_chat_export.py` — exported via `imsg chats` + `imsg history --json`.
-   Looked complete, but produced 5,129 messages: `imsg` only sees conversations that
-   still have a `chat_message_join` row, so every deleted chat was missing. The other
-   17,606 messages live in the same database, unreachable from the CLI.
+   Looked complete, but covered only a fraction of the database: `imsg` only sees
+   conversations that still have a `chat_message_join` row, so every deleted chat was
+   missing. Most of the history lives in the same database, unreachable from the CLI.
 2. `02_resolve_attachments.py` — copied attachments out of the imsg JSON, recovered
    same-basename files, wrote `manifest.csv`.
 3. `03_resolve_by_uuid.py` — resolved the remaining attachments by matching their UUID
