@@ -28,6 +28,7 @@ TAPBACK_LABELS = {
 # The attributedBody blob prefixes the string with class markers, a length byte and a
 # 0x86 0x84 terminator. This is the marker that directly precedes the payload.
 _BODY_MARKER = b"\x84\x01+"
+_BODY_TERMINATOR = b"\x86\x84"
 
 
 def apple_timestamp(value: int | None) -> datetime | None:
@@ -64,36 +65,55 @@ def local_time(moment: datetime | None) -> str:
     return moment.astimezone().strftime("%Y-%m-%d %H:%M")
 
 
+def _read_payload(blob: bytes, start: int) -> tuple[bytes, int] | None:
+    """Decode the length-prefixed string at `start`, or None if it does not fit."""
+    cursor = start + len(_BODY_MARKER)
+    if cursor >= len(blob):
+        return None
+    lead = blob[cursor]
+    if lead == 0x81:
+        length = int.from_bytes(blob[cursor + 1 : cursor + 3], "little")
+        cursor += 3
+    elif lead == 0x82:
+        length = int.from_bytes(blob[cursor + 1 : cursor + 5], "little")
+        cursor += 5
+    else:
+        length = lead
+        cursor += 1
+    end = cursor + length
+    if end > len(blob):
+        return None
+    return blob[cursor:end], end
+
+
 def decode_attributed_body(blob: bytes | None) -> str:
     """Extract the plain string from an NSAttributedString typedstream blob.
 
     Roughly half of all message rows leave `text` empty and keep the body only in
-    `attributedBody`. The payload is preceded by the NSString class marker, a
-    base-128-ish length prefix (0x81 + uint16 LE, 0x82 + uint32 LE, or a single
-    byte) and is followed by a 0x86 0x84 terminator.
+    `attributedBody`. The payload is preceded by the NSString class marker, a length
+    prefix (0x81 + uint16 LE, 0x82 + uint32 LE, or a single byte) and followed by a
+    0x86 0x84 terminator.
+
+    A blob can contain several marker sequences — attribute dictionaries embed their
+    own strings — and leading bytes can look like a marker. Candidates are therefore
+    validated: the length must fit and the payload must be followed by the terminator.
+    The first candidate that validates wins; if none does, the first candidate that at
+    least fits is used, matching the behaviour of blobs written without a terminator.
     """
     if not blob:
         return ""
-    start = blob.find(_BODY_MARKER)
-    if start < 0:
-        return ""
-    cursor = start + len(_BODY_MARKER)
-    if cursor >= len(blob):
-        return ""
-    try:
-        lead = blob[cursor]
-        if lead == 0x81:
-            length = int.from_bytes(blob[cursor + 1 : cursor + 3], "little")
-            cursor += 3
-        elif lead == 0x82:
-            length = int.from_bytes(blob[cursor + 1 : cursor + 5], "little")
-            cursor += 5
-        else:
-            length = lead
-            cursor += 1
-        return blob[cursor : cursor + length].decode("utf-8", "ignore")
-    except (IndexError, ValueError):
-        return ""
+    fallback: bytes | None = None
+    position = blob.find(_BODY_MARKER)
+    while position >= 0:
+        parsed = _read_payload(blob, position)
+        if parsed is not None:
+            payload, end = parsed
+            if blob[end : end + len(_BODY_TERMINATOR)] == _BODY_TERMINATOR:
+                return payload.decode("utf-8", "ignore")
+            if fallback is None:
+                fallback = payload
+        position = blob.find(_BODY_MARKER, position + 1)
+    return fallback.decode("utf-8", "ignore") if fallback is not None else ""
 
 
 def clean_text(text: str | None) -> str:

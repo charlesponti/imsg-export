@@ -98,7 +98,14 @@ def _contact_names() -> dict[str, str]:
     return names
 
 
-def _load_graph(con: sqlite3.Connection) -> tuple[dict, dict, dict, dict]:
+def _load_graph(
+    con: sqlite3.Connection,
+) -> tuple[
+    dict[int, str],
+    dict[int, dict[str, Any]],
+    dict[int, list[int]],
+    dict[int, list[dict[str, Any]]],
+]:
     handles = {row["ROWID"]: row["id"] for row in con.execute("select ROWID, id from handle")}
 
     chats: dict[int, dict[str, Any]] = {}
@@ -167,7 +174,7 @@ def _build_messages(
     con: sqlite3.Connection,
     handles: dict[int, str],
     chats: dict[int, dict[str, Any]],
-    message_chats: dict,
+    message_chats: dict[int, list[int]],
     names: dict[str, str],
 ) -> list[Message]:
     rows = con.execute(
@@ -272,11 +279,13 @@ def _attachment_index() -> dict[str, str]:
 
 
 def _copy_attachments(
-    messages: list[Message], attachments: dict, target: Path
-) -> tuple[list[dict], Counter]:
-    index = _attachment_index()
-    manifest: list[dict] = []
-    counts: Counter = Counter()
+    messages: list[Message],
+    attachments: dict[int, list[dict[str, Any]]],
+    target: Path,
+) -> tuple[list[dict[str, Any]], Counter[str]]:
+    index: dict[str, str] | None = None
+    manifest: list[dict[str, Any]] = []
+    counts: Counter[str] = Counter()
 
     for record in messages:
         for attachment in attachments.get(record["id"], []):
@@ -292,8 +301,10 @@ def _copy_attachments(
             status = "purged"
             if source and os.path.exists(source):
                 resolved = source
-            elif source and os.path.basename(source) in index:
-                resolved = index[os.path.basename(source)]
+            elif source:
+                if index is None:
+                    index = _attachment_index()
+                resolved = index.get(os.path.basename(source))
 
             destination = directory / f"{attachment['id']}-{name}"
             if resolved:
@@ -335,7 +346,7 @@ def _copy_attachments(
 def _render(messages: list[Message]) -> list[str]:
     """Render a conversation, folding reactions onto the message they target."""
     guids = {m["guid"] for m in messages}
-    reactions: dict[str, list[tuple[dict, Message]]] = defaultdict(list)
+    reactions: dict[str, list[tuple[dict[str, Any], Message]]] = defaultdict(list)
     for message in messages:
         if not message["kind"].startswith("reaction"):
             continue
@@ -461,6 +472,25 @@ def _write_csv(messages: list[Message], path: Path) -> None:
             )
 
 
+#: Line/paragraph separators are valid inside a JSON string but are treated as line
+#: breaks by str.splitlines(), wc -l and most line-oriented tools. Escaping them keeps
+#: one record per physical line for every consumer.
+_LINE_BREAKS = {
+    "\u0085": "\\u0085",  # NEL
+    "\u2028": "\\u2028",  # line separator
+    "\u2029": "\\u2029",  # paragraph separator
+}
+
+
+def jsonl_line(record: Message) -> str:
+    """Serialise one record as a single physical line of JSON."""
+    line = json.dumps(record, ensure_ascii=False)
+    for raw, escaped in _LINE_BREAKS.items():
+        if raw in line:
+            line = line.replace(raw, escaped)
+    return line
+
+
 def iter_messages(path: Path) -> Iterator[Message]:
     """Stream records out of an exported messages.jsonl."""
     with path.open(encoding="utf-8") as handle:
@@ -497,7 +527,7 @@ def export_history(
 
     with (target_path / "messages.jsonl").open("w", encoding="utf-8") as handle:
         for message in messages:
-            handle.write(json.dumps(message, ensure_ascii=False) + "\n")
+            handle.write(jsonl_line(message) + "\n")
 
     for chat in chats.values():
         chat["message_count"] = sum(1 for m in messages if m["chat_id"] == chat["id"])

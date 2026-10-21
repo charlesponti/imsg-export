@@ -6,6 +6,28 @@ All notable changes to this project. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-21
+
+### Fixed
+
+- `attributedBody` decoding could be fooled by bytes that look like a marker: it took
+  the first `0x84 0x01 0x2b` sequence and trusted the length that followed. Candidates
+  are now validated against the payload length and the `0x86 0x84` terminator, with the
+  first valid one winning. Output is unchanged on a 23,394-blob database.
+- `messages.jsonl` could contain raw U+0085, U+2028 or U+2029 inside message text, which
+  `str.splitlines()`, `wc -l` and most line-oriented tools treat as record separators.
+  Those characters are now escaped, so one record is always one physical line.
+- Building the attachment index walked the entire Messages attachment store on every
+  export, even when there was nothing to resolve. It is now built lazily.
+
+### Added
+
+- `py.typed` and strict mypy configuration; the package type-checks clean.
+- Hypothesis property tests over the decoder, timestamp handling and the exporter
+  (export → verify round-trip, determinism), plus 100% line coverage enforced in CI.
+- `scripts/check_no_pii.py` and a pinned full-history gitleaks scan in CI.
+- `.github/badges/coverage.svg` and `scripts/coverage_badge.py`.
+
 ## [0.1.0] - 2026-10-21
 
 ### Added
